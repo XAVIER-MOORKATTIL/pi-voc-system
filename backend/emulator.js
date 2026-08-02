@@ -1,52 +1,60 @@
-// backend/emulator.js
-const { io } = require('socket.io-client');
+import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:5000');
-const TARGET_NODE = 'RISCV_NODE_01';
+// Connect to local or cloud Render backend gateway
+const BACKEND_URL = process.env.BACKEND_URL || 'https://pi-voc-system.onrender.com';
+const socket = io(BACKEND_URL, {
+  transports: ['websocket', 'polling'],
+});
 
-console.log('========================================');
-console.log(`[Edge Node Simulation] Connecting to Gateway...`);
-console.log(`[Target ID]: ${TARGET_NODE}`);
-console.log('========================================');
+const DEVICE_ID = 'RISCV_NODE_01';
+const pi_digits = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3, 2, 3, 8, 4];
 
 let step = 0;
+let forcedState = null; // Holds bi-directional hardware override state
+
+console.log('========================================');
+console.log(`[Edge Node Simulation] Connecting to Gateway (${BACKEND_URL})...`);
+console.log(`[Target ID]: ${DEVICE_ID}`);
+console.log('========================================');
 
 socket.on('connect', () => {
-  console.log('[Edge Node Simulation] Connected to Gateway!');
+  console.log('[Socket] Connected to telemetry gateway!');
 });
 
-// Calculate dynamic non-repeating Pi frequency
-function calculatePiFrequency(step) {
-  let piApprox = 0.0;
-  for (let i = 0; i < step + 10; i++) {
-    piApprox += (Math.pow(-1, i) / (2 * i + 1));
+// Listen for hardware override commands from the dashboard
+socket.on('node-command', (command) => {
+  console.log('\n⚡ [OVERRIDE INTERRUPT RECEIVED FROM CLOUD]:', command);
+  if (command.action === 'FORCE_HIGH') {
+    forcedState = 'HIGH';
+  } else if (command.action === 'FORCE_LOW') {
+    forcedState = 'LOW';
+  } else if (command.action === 'CLEAR') {
+    forcedState = null;
   }
-  piApprox *= 4.0;
-  return (3.14159 * (100 + (step % 20))) + piApprox;
-}
+});
 
+// High-frequency telemetry ingestion loop
 setInterval(() => {
   step++;
-  const currentFreq = calculatePiFrequency(step);
-  const gpioState = (step % 2 === 0);
-  const cpuUsage = (5 + Math.random() * 15).toFixed(2);
+  const digit = pi_digits[step % pi_digits.length];
+  const frequency = Number((300 + digit * 12.3456).toFixed(4));
+  const cpuUsage = Number((5 + Math.random() * 15).toFixed(2));
+  
+  // Use forced state if override active, otherwise toggle dynamically
+  const gpioState = forcedState || (step % 2 === 0 ? 'HIGH' : 'LOW');
 
-  const payload = {
-    deviceId: TARGET_NODE,
-    frequencyHz: parseFloat(currentFreq.toFixed(4)),
-    gpioState: gpioState,
-    cgroupCpuUsage: parseFloat(cpuUsage),
-    sequenceId: step,
-    timestamp: new Date().toISOString()
+  const telemetryPacket = {
+    deviceId: DEVICE_ID,
+    frequency,
+    cpuUsage,
+    gpioState,
+    timestamp: new Date(),
   };
 
-  // EMIT TELEMETRY TO GATEWAY SERVER
-  socket.emit('telemetry:push', payload);
-
-  console.log(`[TX -> Gateway] Step ${step} | GPIO:${gpioState ? 'HIGH (1)' : 'LOW (0)'} | Freq: ${payload.frequencyHz} Hz | CPU: ${payload.cgroupCpuUsage}%`);
-}, 1500);
-
-// Listen for hardware override commands back from Dashboard
-socket.on('hardware:override', (command) => {
-  console.log('⚡ [INTERRUPT RECEIVED FROM CONTROL CENTER]:', command);
-});
+  socket.emit('telemetry-stream', telemetryPacket);
+  console.log(
+    `[TX -> Gateway] Step ${step} | GPIO: ${gpioState} | Freq: ${frequency} Hz | CPU: ${cpuUsage}%${
+      forcedState ? ' (FORCED OVERRIDE ACTIVE)' : ''
+    }`
+  );
+}, 1000);
