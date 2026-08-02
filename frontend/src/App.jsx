@@ -3,8 +3,11 @@ import { io } from 'socket.io-client';
 import { Activity, Cpu, HardDrive, Zap, Radio, Terminal, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
+// 1. Dynamic API/Socket Host Determination
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://pi-voc-system.onrender.com';
+
 // Establish connection to backend Gateway
-const socket = io('http://localhost:5000', {
+const socket = io(BACKEND_URL, {
   transports: ['websocket', 'polling']
 });
 
@@ -14,16 +17,16 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(socket.connected);
 
   useEffect(() => {
-    // 1. Fetch historical telemetry on mount
-    fetch('http://localhost:5000/api/telemetry/history')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setTelemetry(data.reverse()); // Chronological order for Recharts
-          setLatestNode(data[data.length - 1]);
-        }
-      })
-      .catch((err) => console.error('[REST Error] History fetch failed:', err));
+// Fetch historical telemetry on mount
+fetch(`${BACKEND_URL}/api/telemetry/history`)
+  .then((res) => res.json())
+  .then((data) => {
+    if (Array.isArray(data) && data.length > 0) {
+      setTelemetry(data.reverse());
+      setLatestNode(data[data.length - 1]);
+    }
+  })
+  .catch((err) => console.error('[REST Error] History fetch failed:', err));
 
     // 2. Gateway socket connection listeners
     const onConnect = () => setIsConnected(true);
