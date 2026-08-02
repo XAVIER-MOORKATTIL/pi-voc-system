@@ -2,76 +2,94 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
 #include <fcntl.h>
+#include <math.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#define SYSFS_GPIO_DIR "/sys/class/gpio"
-#define CGROUP_MEM_PATH "/sys/fs/cgroup/memory/pi_voc_node/memory.limit_in_bytes"
+// Simulated or real Linux sysfs GPIO base path
+#define GPIO_EXPORT_PATH "/sys/class/gpio/export"
+#define GPIO_PIN "18"
+#define GPIO_DIR_PATH "/sys/class/gpio/gpio18/direction"
+#define GPIO_VAL_PATH "/sys/class/gpio/gpio18/value"
 
-// Calculate dynamic non-repeating frequencies using Pi-series iteration
-double calculate_pi_frequency(int step) {
-    double pi_approx = 0.0;
-    for (int i = 0; i < step + 10; i++) {
-        pi_approx += (pow(-1, i) / (2 * i + 1));
+// Cgroup v2 configuration path
+#define CGROUP_PATH "/sys/fs/cgroup/pivoc"
+
+// First 20 digits of Pi for frequency modulation sequence
+const int pi_digits[] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3, 2, 3, 8, 4};
+const int total_digits = 20;
+
+void write_file(const char* path, const char* value) {
+    int fd = open(path, O_WRONLY);
+    if (fd < 0) {
+        // Fallback print for standard operating systems without Linux sysfs
+        printf("[Bare-Metal Sysfs Simulation] %s -> %s\n", path, value);
+        return;
     }
-    pi_approx *= 4.0;
-    return (3.14159 * (100 + (step % 20))) + pi_approx;
+    write(fd, value, strlen(value));
+    close(fd);
 }
 
-// Low-level hardware System Call simulation to mutate GPIO pins
-void mutate_gpio_pin(int pin, int value) {
-    printf("[KERNEL] sysfs write -> %s/gpio%d/value = %d\n", SYSFS_GPIO_DIR, pin, value);
-    // In live RISC-V Linux hardware:
-    // int fd = open("/sys/class/gpio/gpio18/value", O_WRONLY);
-    // write(fd, value ? "1" : "0", 1);
-    // close(fd);
+void configure_cgroups(int cpu_quota_percent) {
+    char quota_str[64];
+    snprintf(quota_str, sizeof(quota_str), "%d 100000", cpu_quota_percent * 1000);
+    printf("[Linux Kernel Cgroups] Mutating /sys/fs/cgroup/pivoc/cpu.max -> %s\n", quota_str);
+    write_file("/sys/fs/cgroup/pivoc/cpu.max", quota_str);
 }
 
-// Low-level Linux Cgroup execution control
-void enforce_cgroup_memory_limit(size_t bytes) {
-    printf("[CGROUP V1/V2] Updating memory boundary: %lu bytes\n", bytes);
-    // Writes direct kernel memory ceiling to prevent memory runaway:
-    // int fd = open(CGROUP_MEM_PATH, O_WRONLY);
-    // dprintf(fd, "%lu", bytes);
-    // close(fd);
+void setup_gpio() {
+    write_file(GPIO_EXPORT_PATH, GPIO_PIN);
+    usleep(100000); // 100ms delay for device tree export
+    write_file(GPIO_DIR_PATH, "out");
 }
 
 int main() {
-    printf("==================================================\n");
-    printf("  PI-VOC KERNEL EDGE EXECUTION ENGINE (RISC-V/C)  \n");
-    printf("==================================================\n");
+    printf("===============================================================\n");
+    printf("   PROJECT Pi-VOC: BARE-METAL RISC-V KINETIC EXECUTION ENGINE   \n");
+    printf("===============================================================\n");
 
-    int step = 0;
-    int socket_connected = 0; // Set to 0 to trigger autonomous edge loop
+    setup_gpio();
+    configure_cgroups(20); // Initial 20% Cgroup CPU allocation
 
-    // Enforce initial hardware memory limit (16MB boundary)
-    enforce_cgroup_memory_limit(1024 * 1024 * 16);
+    int pi_index = 0;
+    int socket_connected = 1; // Simulated connection state
+    int loop_counter = 0;
 
-    while (1) {
-        step++;
-        double current_freq = calculate_pi_frequency(step);
-        int gpio_state = (step % 2 == 0) ? 1 : 0;
+    while(1) {
+        loop_counter++;
+        
+        // 1. Calculate Pi-Derived Kinetic Frequency Modulation
+        int digit = pi_digits[pi_index % total_digits];
+        double frequency_hz = 300.0 + (digit * 12.3456);
+        pi_index++;
 
-        // Mutate physical pin
-        mutate_gpio_pin(18, gpio_state);
+        // 2. Pulse Physical Hardware GPIO
+        write_file(GPIO_VAL_PATH, "1");
+        usleep(100000); // 100ms pulse high
+        write_file(GPIO_VAL_PATH, "0");
 
-        // AUTONOMOUS EDGE FALLBACK TEST
-        if (!socket_connected) {
-            printf("⚡ [AUTONOMOUS ENGINE STEP %d] Freq: %.4f Hz | GPIO Pin 18: %s\n",
-                   step, current_freq, gpio_state ? "HIGH" : "LOW");
-            
-            // Dynamic cgroup memory allocation based on system pressure
-            if (step % 5 == 0) {
-                enforce_cgroup_memory_limit(1024 * 1024 * (16 + step));
-            }
+        // 3. Autonomous Mutation Test Check (Simulate network disconnect at step 15)
+        if (loop_counter == 15) {
+            printf("\n[ALERT] WebSocket Connection Severed! Entering Autonomous Hardware Mutation Mode...\n");
+            socket_connected = 0;
         }
 
-        // Pulse hardware clock interval (1.5 seconds)
-        usleep(1500000);
+        if (!socket_connected) {
+            // Autonomous adaptation without cloud intervention
+            printf("[Autonomous Engine] Local network lost. Adjusting Cgroup quota to emergency bounds...\n");
+            configure_cgroups(50); // Scale up local computing resource
+            frequency_hz = 400.0 + (digit * 5.0); // Shift clock pattern
+        }
+
+        printf("[Node Telemetry] Freq: %.4f Hz | Pin: %s | Cgroup: %s\n", 
+               frequency_hz, 
+               (loop_counter % 2 == 0) ? "HIGH" : "LOW",
+               socket_connected ? "NORMAL" : "AUTONOMOUS_MUTATED");
+
+        sleep(1);
     }
 
     return 0;
 }
-
-

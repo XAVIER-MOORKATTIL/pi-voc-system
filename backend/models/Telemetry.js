@@ -1,12 +1,13 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const TelemetrySchema = new mongoose.Schema({
   deviceId: { type: String, required: true },
-  frequencyHz: { type: Number, required: true },
-  gpioState: { type: Boolean, required: true },
-  cgroupCpuUsage: { type: Number, required: true },
-  sequenceId: { type: Number, default: () => Date.now() }, // Auto-generate if missing
-  timestamp: { type: Date, default: Date.now }
+  frequency: { type: Number, required: true },
+  cpuUsage: { type: Number, required: true },
+  gpioState: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('Telemetry', TelemetrySchema);
+const Telemetry = mongoose.model('Telemetry', TelemetrySchema);
+
+export default Telemetry;
