@@ -1,0 +1,27 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model DeviceNode {
+  id                 String   @id @default(uuid())
+  deviceId           String   @unique
+  cryptoHardwareHash String   @unique
+  cgroupAllocation   String
+  status             String   @default("ACTIVE")
+  lastSeen           DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  role     String @default("OPERATOR")
+}
