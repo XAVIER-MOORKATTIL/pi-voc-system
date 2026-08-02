@@ -41,6 +41,30 @@ pi-voc-system/
 ├── c_node/              # Native C execution engine
 └── README.md\
 
+# Project Pi-VOC: Bare-Metal Cyber-Physical Telemetry & Edge Execution Node
+
+## 🏗️ Architecture & Stack Coverage
+- **Frontend Dashboard:** React.js, WebSockets, TailwindCSS, Recharts (Deployed on Vercel)
+- **Backend Gateway:** Node.js, Express.js, Socket.io (Deployed on Render)
+- **Ingestion Queue:** Redis Pub/Sub & Async Worker Pipeline (`backend/queue.js`)
+- **Persistence Layer:** MongoDB (Time-Series Telemetry) + Neon PostgreSQL via Prisma (Relational Device Mapping & Cryptographic Hashes)
+- **Edge Security:** JWT authentication & Passport.js session guards (`backend/auth.js`)
+- **Low-Level Hardware Core:** Bare-Metal Embedded C Daemon (`c_node/engine.c`) with Linux `sysfs` GPIO pin toggling & dynamic Cgroup quota mutation.
+
+## 📁 Repository Structure
+
+pi-voc-system/
+├── backend/
+│   ├── prisma/ schema.prisma (PostgreSQL Relational Schema)
+│   ├── auth.js (Passport.js JWT Guard)
+│   ├── queue.js (Redis Pub/Sub & Queue Worker)
+│   ├── emulator.js (Node.js Edge Telemetry Streamer)
+│   └── server.js (Socket.io & Gateway API)
+├── frontend/ (React + Tailwind + WebSockets Dashboard)
+└── c_node/
+├── engine.c (Linux/RISC-V Bare-Metal Daemon with Cgroup & sysfs)
+└── engine (Compiled Linux Executable Binary)
+
 ## 💻 Quick Start & Setup
 # 1. Repository Setup
 Bash
